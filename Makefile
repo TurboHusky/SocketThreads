@@ -1,9 +1,9 @@
-INCLUDE_PATH := ../include
+INCLUDE_PATH := 
 
 CXX := g++
-CXXFLAGS := -std=c++20 -isystem ${INCLUDE_PATH} -Wall -Wextra -Wpedantic -Werror
-LDFLAGS := -L ./
-LDLIBS := 
+CXXFLAGS := -std=c++20 -isystem ${INCLUDE_PATH} -g -Wall -Wextra -Wpedantic -Werror
+LDFLAGS := 
+LDLIBS := -lPocoFoundation
 
 SOURCE := main.cpp
 
