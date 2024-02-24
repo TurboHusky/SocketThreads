@@ -1,9 +1,10 @@
-INCLUDE_PATH := ../include
+INCLUDE_PATH := /usr/x86_64-w64-mingw32/include
 
-CXX := g++
-CXXFLAGS := -std=c++20 -isystem ${INCLUDE_PATH} -Wall -Wextra -Wpedantic -Werror
-LDFLAGS := -L ./
-LDLIBS := 
+CXX := x86_64-w64-mingw32-g++
+CXXFLAGS := -std=c++20 -I ${INCLUDE_PATH} -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wpedantic -Werror
+LDFLAGS := -L/usr/x86_64-w64-mingw32/lib
+LDLIBS := -lws2_32
+# -lws2_32 -lkernel32 -luser32 -lcomctl32 -lgdi32 -lwsock32
 
 SOURCE := main.cpp
 
@@ -13,8 +14,8 @@ SOURCE := main.cpp
 # $^ - All prereqs
 # |  - Order only prereqs on the right (Not re-built if changed)
 all: $(SOURCE)
-	@echo Building $@ for Linux...
-	$(CXX) $? $(CXXFLAGS) $(LDFLAGS) $(LDLIBS) -o main
+	@echo Building $@.exe...
+	$(CXX) $(CXXFLAGS) $? -o main.exe $(LDFLAGS) $(LDLIBS)
 
 .PHONY : clean
 clean :
