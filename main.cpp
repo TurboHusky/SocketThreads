@@ -18,24 +18,33 @@ int client_app(sockaddr_in server_addr)
         return -1;
     }
     SOCKET client;
-    client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    client = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (client == INVALID_SOCKET)
     {
         printf("Client: Failed to open socket.");
         return 1;
     }
-    printf("Client: Connecting...\n");
-    if (connect(client, result->ai_addr, (int)result->ai_addrlen) == SOCKET_ERROR)
-    {
-        printf("Client: Failed to connect [%d]\n", WSAGetLastError());
-        return 1;
-    }
-    char send_buffer[65536]{"Client message."};
+    char send_buffer[200]{"Client message."};
     printf("Client: Sending...\n");
-    send(client, send_buffer, strlen(send_buffer), 0);
+    sockaddr_in address;
+    address.sin_family = AF_INET;
+    InetPton(AF_INET, "127.0.0.1", &address.sin_addr.s_addr);
+    address.sin_port = htons(9977);
+    int bytesSent = sendto(client, send_buffer, strlen(send_buffer), 0, (sockaddr*)&address, sizeof(address));
+    if (bytesSent < 0)
+    {
+        printf("Failed to send datagram");
+    }
     int reader;
     char buffer[1024]{0};
-    reader = recv(client, &buffer[0], 1024, 0);
+
+    sockaddr_in clientAddress;
+    int clientAddress_length = (int)sizeof(clientAddress);
+    reader = recvfrom(client, buffer, 1024, 0, (sockaddr*)&clientAddress, &clientAddress_length);
+    if (reader < 0)
+    {
+        printf("Failed to read datagram\n");
+    }
     printf("Client: Read %d bytes: \"%s\"\n", reader, buffer);
 
     printf("Client: Cleaning up.\n");
@@ -60,8 +69,7 @@ int server_app(sockaddr_in server_addr)
     }
 
     SOCKET server{INVALID_SOCKET};
-    server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
+    server = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (server == INVALID_SOCKET)
     {
         int winerr = WSAGetLastError();
@@ -76,49 +84,35 @@ int server_app(sockaddr_in server_addr)
     }
     // Bind
     printf("Server: Binding...\n");
-
-    if (bind(server, result->ai_addr, (int)result->ai_addrlen) == SOCKET_ERROR)
+    sockaddr_in RecvAddr;
+    RecvAddr.sin_family = AF_INET;
+    RecvAddr.sin_port = htons(9977u);
+    RecvAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(server, (sockaddr *) &RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
     {
         printf("Sever: Failed to bind to address [%d]\n", WSAGetLastError());
-        return 1;
-    }
-    // Listen
-    printf("Server: Listening...\n");
-    if (listen(server, 3) == SOCKET_ERROR)
-    {
-        printf("Server: Failed to start listening [%d]\n", WSAGetLastError());
-        return 1;
-    }
-
-    // Accept
-    SOCKET conn;
-    printf("Server: Accept connection...\n");
-    conn = accept(server, NULL, NULL);
-    if (conn == INVALID_SOCKET)
-    {
-        printf("Server: Failed to accept connection\n");
         return 1;
     }
 
     int reader;
     char buffer[1024]{0};
-    printf("Server: Receiving...\n");
-    reader = recv(conn, &buffer[0], 1024, 0);
+    sockaddr_in clientAddress;
+    int clientAddress_length = (int)sizeof(clientAddress);
+    printf("Server: Receiving datagrams...\n");
+    reader = recvfrom(server, buffer, 1024, 0, (sockaddr*) &clientAddress, &clientAddress_length);
+    if (reader == SOCKET_ERROR)
+    {
+        printf("Server: Cound not receive datagram\n");
+    }
+
     printf("Server: Read %d bytes: \"%s\"\n", reader, buffer);
     char msg[]{"Server response."};
-    send(conn, msg, strlen(msg), 0);
+    sendto(server, msg, strlen(msg), 0, (sockaddr*) &clientAddress, sizeof(clientAddress));
     printf("Server: Sent response to client.\n");
 
     printf("Server: Cleaning up\n");
     closesocket(server);
     freeaddrinfo(result);
-    return 0;
-}
-
-DWORD WINAPI threadtest(LPVOID threadparams)
-{
-    (void)threadparams;
-    printf("Thread called...\n");
     return 0;
 }
 
@@ -135,18 +129,6 @@ int main(int argc, char const *argv[])
         printf("Unable to initialise Windows socket system: %d\n", iResult);
         return 1;
     }
-
-    printf("Starting thread\n");
-    DWORD id1{0};
-    HANDLE winthread = CreateThread(NULL, 0, threadtest, NULL, 0, &id1);
-    if (id1 == 0 || winthread == NULL)
-    {
-        printf("Error crating thread\n");
-        return -1;
-    }
-    // system("pause"); // Win specific -> "Press any key to continue"
-    Sleep(1000);
-    printf("Thread Id: %lu\n", id1);
 
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
